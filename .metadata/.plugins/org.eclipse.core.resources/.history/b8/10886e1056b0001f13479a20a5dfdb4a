@@ -1,0 +1,195 @@
+import java_cup.runtime.*;
+import java.io.*;
+
+parser code {:
+
+	public int errNo = 0;
+
+    public static void main( String[] args )
+    {
+        try
+        {
+            FileReader file = new FileReader( args[0] );
+            Scanner scanner = new GenerisanaKlasa( file );
+            Parser parser = new Parser( scanner );
+			parser.parse();
+
+			if ( parser.errNo == 0)
+				System.out.println( "Analiza je zavrsena. U kodu nema sintaksnih gresaka!" );
+			else
+				System.out.println( "Analiza je zavrsena. Broj sintaksnih gresaka: " + parser.errNo );
+        }
+        catch( Exception e )
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public void syntax_error(Symbol current_token)
+    {
+
+    }
+
+    public void report_error(String message, Object info)
+    {
+        System.out.println( message );
+    }
+
+    public int getLine()
+    {
+        return ( ( GenerisanaKlasa ) getScanner() ).getLine();
+    }
+:};
+
+//Terminali
+terminal MAIN, EXIT, ID, INT, FLOAT, BOOL, ASSIGN, SEMICOLON, PLUS, MINUS, CONST;
+terminal FOR, IN, OPENSQUARE, CLOSEDSQUARE, APPLY, TRUE, FALSE, COMM, COLON, COMMA;
+
+
+// Neterminali
+non terminal Program, Block, Declarations, Declaration, Type, Expressions, NameList;
+non terminal Expression, Assignment, ArithmeticExpression, TermExpression, ApplyExpression;
+
+// Gramatika
+
+start with Program;
+
+//PROGRAM**********************************************************
+
+
+Program ::= MAIN Block EXIT
+| MAIN Block error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nedostaje EXIT na kraju programa.");
+    parser.errNo++;
+:}
+| MAIN error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Telo programa je neispravno ili ne postoji.");
+    parser.errNo++;
+:}
+|error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nedostaje MAIN na pocetku programa.");
+    parser.errNo++;
+:};
+
+
+//BLOK**********************************************************
+
+
+Block ::= Declarations Expressions;
+
+
+//DEKLARACIJA**********************************************************
+
+
+Declarations ::= Declarations Declaration
+| Declaration;
+
+Declaration ::= Type ID SEMICOLON
+|Type ID error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nedostaje ;.");
+    parser.errNo++;
+:}
+|Type error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nije dato ime promenljive.");
+    parser.errNo++;
+:};
+
+
+//TIP**********************************************************
+
+Type ::= INT
+| FLOAT
+| BOOL;
+
+
+//EXPRESSIONS**********************************************************
+
+
+Expressions ::= Expressions SEMICOLON Expression | Expression
+|Expressions SEMICOLON error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Napisano ; na kraju izraza.");
+    parser.errNo++;
+:};
+
+Expression ::= Assignment
+| ApplyExpression ;
+
+
+//ASSIGNMENT**********************************************************
+
+
+Assignment ::= ID ASSIGN ArithmeticExpression
+|ID ASSIGN error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nedostaje desna strana dodele.");
+    parser.errNo++;
+:}
+|ID error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Ocekuje se :=.");
+    parser.errNo++;
+:};
+
+
+//ARITHMETIC**********************************************************
+
+
+ArithmeticExpression ::= ArithmeticExpression PLUS TermExpression
+| ArithmeticExpression MINUS TermExpression
+| TermExpression;
+
+TermExpression ::= CONST | ID;
+
+
+//APPLY**********************************************************
+
+
+ApplyExpression ::= FOR ID IN OPENSQUARE NameList CLOSEDSQUARE APPLY Expression
+|FOR ID IN OPENSQUARE NameList CLOSEDSQUARE APPLY error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nije naveden izraz koji se treba izvrsiti nad listom.");
+    parser.errNo++;
+:}
+|FOR ID IN OPENSQUARE NameList CLOSEDSQUARE error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nedostaje kljucna rec APPLY.");
+    parser.errNo++;
+:}
+|FOR ID IN OPENSQUARE NameList error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Zagrada nije zatvorena.");
+    parser.errNo++;
+:}
+|FOR ID IN OPENSQUARE error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nije navedena lista.");
+    parser.errNo++;
+:}
+|FOR ID IN error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Ocekuje se [.");
+    parser.errNo++;
+:}
+|FOR ID error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Nedostaje kljucna rec IN.");
+    parser.errNo++;
+:}
+|FOR error
+{:
+    System.out.println("Greska u liniji " + parser.getLine() + ": " +  "Ocekuje se identifikator.");
+    parser.errNo++;
+:};
+
+
+//NAMELIST**********************************************************
+
+
+NameList ::= NameList COMMA ID
+| ID;

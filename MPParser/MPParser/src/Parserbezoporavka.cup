@@ -1,0 +1,157 @@
+import java_cup.runtime.*;
+import java.io.*;
+
+parser code {:
+
+	public int errNo = 0;
+
+    public static void main( String[] args )
+    {
+        try
+        {
+            FileReader file = new FileReader( args[0] );
+            Scanner scanner = new GenerisanaKlasa( file );
+            Parserbezoporavka parser = new Parserbezoporavka( scanner );
+			parser.parse();
+
+			if ( parser.errNo == 0)
+				System.out.println( "Analiza je zavrsena. U kodu nema sintaksnih gresaka!" );
+			else
+				System.out.println( "Analiza je zavrsena. Broj sintaksnih gresaka: " + parser.errNo );
+        }
+        catch( Exception e )
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public void syntax_error(Symbol current_token)
+    {
+
+    }
+
+    public void report_error(String message, Object info)
+    {
+        System.out.println( message );
+    }
+
+    public int getLine()
+    {
+        return ( ( GenerisanaKlasa ) getScanner() ).getLine();
+    }
+:};
+
+//Terminali
+terminal MAIN, EXIT, ID, INT, FLOAT, BOOL, ASSIGN, SEMICOLON, PLUS, MINUS, CONST;
+terminal FOR, IN, OPENSQUARE, CLOSEDSQUARE, APPLY, TRUE, FALSE, COMM, COLON, COMMA;
+
+
+// Neterminali
+non terminal Program, Block, Declarations, Declaration, Type, Expressions, NameList;
+non terminal Expression, Assignment, ArithmeticExpression, TermExpression, ApplyExpression;
+
+// Gramatika
+
+start with Program;
+
+//PROGRAM**********************************************************
+
+
+Program ::= MAIN Block EXIT
+{:
+    System.out.println("Program! Linija" + parser.getLine());
+:};
+
+
+//BLOK**********************************************************
+
+
+Block ::= Declarations Expressions
+{:
+    System.out.println("Blok! Linija" + parser.getLine());
+:};
+
+
+//DEKLARACIJA**********************************************************
+
+
+Declarations ::= Declarations Declaration
+| Declaration
+{:
+    System.out.println("Declarations! Linija" + parser.getLine());
+:};
+
+Declaration ::= Type ID SEMICOLON
+{:
+    System.out.println("Declaration! Linija"  + parser.getLine());
+:};
+
+//TIP**********************************************************
+
+
+
+
+Type ::= INT
+| FLOAT
+| BOOL
+{:
+    System.out.println("Type! Linija" + parser.getLine());
+:};
+
+
+//EXPRESSIONS**********************************************************
+
+
+Expressions ::= Expressions SEMICOLON Expression | Expression
+{:
+    System.out.println("Expressions!Linija" + parser.getLine());
+:};
+
+Expression ::= Assignment
+| ApplyExpression
+{:
+    System.out.println("Expression! Linija"  + parser.getLine());
+:};
+
+
+//ASSIGNMENT**********************************************************
+
+
+Assignment ::= ID ASSIGN ArithmeticExpression
+{:
+    System.out.println("Assignment! Linija"  + parser.getLine());
+:};
+
+
+//ARITHMETIC**********************************************************
+
+
+ArithmeticExpression ::= ArithmeticExpression PLUS TermExpression
+| ArithmeticExpression MINUS TermExpression
+| TermExpression
+{:
+    System.out.println("ArithmeticExpression! Linija"  + parser.getLine());
+:};
+
+TermExpression ::= CONST | ID
+{:
+    System.out.println("TermExpression! Linija"  + parser.getLine());
+:};
+
+//APPLY**********************************************************
+
+
+ApplyExpression ::= FOR ID IN OPENSQUARE NameList CLOSEDSQUARE APPLY Expression
+{:
+    System.out.println("ApplyExpression! Linija" + parser.getLine());
+:};
+
+
+//NAMELIST**********************************************************
+
+
+NameList ::= NameList COMMA ID
+| ID
+{:
+    System.out.println("NameList! Linija"  + parser.getLine());
+:};

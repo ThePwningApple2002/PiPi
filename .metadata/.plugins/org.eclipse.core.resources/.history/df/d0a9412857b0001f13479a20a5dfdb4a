@@ -1,0 +1,314 @@
+//import sekcija
+
+import java_cup.runtime.*;
+import java.io.*;
+
+parser code {:
+
+   public int errNo = 0;
+   
+   public static void main( String[] args )
+   {
+      try
+	  {
+		   FileReader file = new FileReader( args[0] );
+		   Scanner scanner = new MPLexer( file );
+		   MPParser parser = new MPParser( scanner );
+		   parser.parse();
+		   if ( parser.errNo == 0 )
+		      System.out.println( "Analiza zavrsena. U kodu nema gresaka." );
+		   else
+		      System.out.println( "Analiza zavrsena. Broj gresaka: " + parser.errNo );
+	  }
+	  catch( Exception e )
+	  {
+		   e.printStackTrace();
+	  }
+   }
+   
+   public void syntax_error(Symbol cur_token)
+   {
+   	  
+   }
+   
+   public void report_error(String message, Object info)
+   {
+   	   System.out.print( message );
+   }
+   
+   public int getLine()
+   {
+   	  return (( MPLexer) getScanner()).getLine();
+   }
+:};
+
+
+//Terminali
+terminal PROGRAM, VAR, INTEGER, CHAR, BEGIN, END, READ, WRITE, IF, THEN, ELSE;
+terminal ID, CONST, PLUS, MUL, LEFTPAR, RIGHTPAR, COLON, ASSIGN, SEMI, COMMA, DOT;
+
+//Neterminali
+non terminal Program, NizImena, DeklProm, Blok, NizDekl, Deklaracija, Tip, NizNar, Naredba;
+non terminal Ulaz, Izlaz, Dodela, Izraz, PIzraz, FIzraz, IfNar;
+
+
+//Gramatika
+
+Program ::= PROGRAM LEFTPAR NizImena RIGHTPAR SEMI DeklProm Blok DOT 
+          | PROGRAM LEFTPAR NizImena RIGHTPAR SEMI DeklProm Blok error:e
+            {:
+               System.out.println( "Nedostaje '.' na kraju programa" );
+               parser.errNo++;
+            :} 
+          | PROGRAM LEFTPAR NizImena RIGHTPAR SEMI DeklProm error
+            {:
+            	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+            		"Telo programa je nekorektno.");
+            	parser.errNo++;
+            :}
+          | PROGRAM LEFTPAR NizImena RIGHTPAR SEMI error
+            {:
+            	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+            		"Nedostaju deklaracije promenljivih.");
+            	parser.errNo++;
+            :}
+          | PROGRAM LEFTPAR NizImena RIGHTPAR error
+             {:
+            	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+            		"Nedostaje ';'.");
+            	parser.errNo++;
+             :}
+          | PROGRAM LEFTPAR NizImena error
+            {:
+            	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+            		"Nedostaje ')'.");
+            	parser.errNo++;
+            :}
+          | PROGRAM LEFTPAR error
+            {:
+            	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+            		"Nedostaju argumenti programa.");
+            	parser.errNo++;
+             :}
+          | PROGRAM error
+             {:
+            	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+            		"Nedostaje '('.");
+            	parser.errNo++;
+             :}
+          | error
+            {:
+            	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+            		"Nedostaje kljucna rec 'program' na pocetku.");
+            	parser.errNo++;
+            :}
+          ;
+
+DeklProm ::= VAR NizDekl
+           | VAR error
+             {:
+             	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+             		"Nedostaju deklaracije promenljivih nakon kljucne veci 'var'.");
+            	parser.errNo++;
+             :}
+           ;
+
+NizDekl ::= NizDekl Deklaracija 
+          | Deklaracija
+          ;
+
+Deklaracija ::= NizImena COLON Tip
+              | NizImena COLON error
+                {:
+                   System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+                   		"Nekorektno ime tipa." );
+            		parser.errNo++;
+                :}
+              | NizImena error
+                {:
+                   System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+                   		"Nedostaje simbol ':'." );
+            		parser.errNo++;
+                :}
+              ;
+
+NizImena ::= NizImena COMMA ID
+           | NizImena COMMA error
+             {:
+             	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+             		"Nedostaje ime promenljive nakon simbola ','" );
+            	parser.errNo++;
+             :}
+           | ID
+           ;
+
+Tip ::= INTEGER 
+      | CHAR
+      ;
+
+Blok ::= BEGIN NizNar END
+       | BEGIN NizNar error
+         {:
+         	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+         		"Nezavrsen blok (nedostaje kljucna rec 'end').");
+            parser.errNo++;
+         :}
+       | BEGIN error
+         {:
+         	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+         		"Telo bloka je nekorektno");
+            parser.errNo++;
+         :}
+       ;
+
+NizNar ::= NizNar SEMI Naredba 
+         | NizNar SEMI error 
+           {:
+              System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+              	"Nedostaje naredba nakon simbola ';'." );
+              parser.errNo++;
+           :}
+         | NizNar error Naredba
+           {:
+              System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+              	"Nedostaje ';'." );
+              parser.errNo++;
+           :}
+         | Naredba
+         ;
+
+Naredba ::= Ulaz
+          | Izlaz 
+          | Dodela
+          | Blok
+          | IfNar
+          ;
+
+Ulaz ::= READ LEFTPAR ID RIGHTPAR
+       | READ LEFTPAR ID error
+         {:
+            System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+            	"Nedostaje ')'.");
+            parser.errNo++;
+         :}
+       | READ LEFTPAR error
+         {:
+            System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+            	"Nedostaje ime promenljive.");
+            parser.errNo++;
+         :}
+       | READ error
+         {:
+            System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+            	"Nedostaje '('.");
+            parser.errNo++;
+         :}
+      ;
+         
+
+Izlaz ::= WRITE LEFTPAR Izraz RIGHTPAR
+        | WRITE LEFTPAR  Izraz error
+          {:
+             System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+             	"Nedostaje ')'.");
+             parser.errNo++;
+          :}
+        | WRITE LEFTPAR error
+          {:
+             System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+             	"Nekorektan izraz.");
+             parser.errNo++;
+          :}
+        | WRITE error
+          {:
+             System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+             	"Nedostaje '('.");
+             parser.errNo++;
+          :}
+        ;
+          
+
+Dodela ::= ID ASSIGN Izraz
+         | ID ASSIGN error
+           {:
+              System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	"Nekorektan izraz.");
+              parser.errNo++;
+           :}
+         | ID error
+           {:
+              System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	"Nedostaje ':='.");
+              parser.errNo++;
+           :}
+         ;
+
+Izraz ::= Izraz PLUS PIzraz 
+        | Izraz PLUS error
+          {:
+             System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+             	"Nekorektan izraz.");
+             parser.errNo++;
+          :}
+        | PIzraz
+        ;
+
+PIzraz ::= PIzraz MUL FIzraz
+         | PIzraz MUL error
+           {:
+              System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	"Nekorektan izraz.");
+              parser.errNo++;
+           :}  
+         | FIzraz
+         ;
+
+FIzraz ::= ID
+         | CONST
+         | LEFTPAR Izraz RIGHTPAR
+         | LEFTPAR Izraz error
+           {:
+              System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+              	"Nedostaje ')'.");
+              parser.errNo++;
+           :}
+         | LEFTPAR error
+           {:
+              System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	"Nekorektan izraz.");
+              parser.errNo++;
+           :}
+         ;
+
+IfNar ::= IF Izraz THEN Naredba ELSE Naredba
+        | IF Izraz THEN Naredba ELSE error
+          {:
+             System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+             	"Nedostaje naredba u 'else' grani.");
+             parser.errNo++;
+          :}
+        | IF Izraz THEN Naredba error
+          {:
+             System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+             	"Nedostaje kljucna rec 'else'.");
+             parser.errNo++;
+          :}
+        | IF Izraz THEN error
+          {:
+             System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+             	"Nedostaje naredba u 'then' grani.");
+             parser.errNo++;
+          :}
+        | IF Izraz error
+          {:
+             System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+             	"Nedostaje kljucna rec 'then'.");
+             parser.errNo++;
+          :}
+        | IF error
+          {:
+             System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+             	"Nedostaje '('.");
+             parser.errNo++;
+          :}
+        ;
