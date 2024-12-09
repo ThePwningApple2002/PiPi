@@ -1,0 +1,332 @@
+//import section
+
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.*;
+
+import SymbolTable.*;
+
+parser code {:
+   public int errNo = 0;
+   public int warnNo = 0;
+   
+   SymbolTable symbolTable;
+   
+   public static void main( String[] args )
+   {
+      try
+	  {
+		   FileReader file = new FileReader( args[0] );
+		   java_cup.runtime.Scanner scanner = new MPLexer( file );
+		   MPParser parser = new MPParser( scanner );
+		   parser.parse();
+		   parser.checkWarnings();
+		   if ( parser.errNo == 0 && parser.warnNo == 0 )
+		      System.out.println( "Analiza zavrsena. U kodu nema gresaka." );
+		   else
+		      System.out.println( "Analiza zavrsena. Broj gresaka: " + parser.errNo 
+		         + " Broj upozorenja: " + parser.warnNo );
+	  }
+	  catch( Exception e )
+	  {
+		   e.printStackTrace();
+	  }
+   }
+   
+   public void checkWarnings()
+   {
+      SymbolNode current = symbolTable.getVariables();
+      while ( current != null )
+      {
+      	Variable var = ( Variable ) current;
+      	if ( var.last_def == -1 && var.last_use == -1 )
+      	{
+      		System.out.println( "Upozorenje: Promenljiva " + var.name + 
+      			" je deklarisana, ali se nigde ne koristi." );
+      		warnNo++;
+      	}
+      	else if ( var.last_def > var.last_use )
+      	{
+      		System.out.println( "Upozorenje: Vrednost dodeljena promeljivoj " +
+      		    var.name + " u liniji " + var.last_def + " se nigde ne koristi." );
+      		warnNo++;
+      	}
+      	current = current.next;
+     }
+   }
+   
+   public void syntax_error(Symbol cur_token)
+   {
+   	  
+   }
+   
+   public void report_error(String message, Object info)
+   {
+   	   System.out.print( message );
+   }
+   
+   public int getLine()
+   {
+   	  return (( MPLexer) getScanner()).getLine();
+   }
+:};
+
+init with {:
+	symbolTable = new SymbolTable();
+:}
+//Terminal symbols
+terminal PROGRAM, INTEGER, CHAR, STRING, FILE, BEGIN, END, READ, OPEN, IN, RETURN;
+terminal PLUS, MINUS, LEFTPAR, RIGHTPAR, COLON, ASSIGN, SEMICOLON, DO;
+terminal String ID;
+terminal Integer INTCONST;
+terminal Character CHARCONST;
+terminal String STRCONST;
+
+//Nonterminal symbols
+non terminal Program, Block, Statements, Statement;
+non terminal Assignment;
+non terminal Type Tip, Expression, ArithmeticExpression, PrimaryExpression, ReadExpression;
+non terminal Variable Var;
+non terminal ArrayList VarList;
+non terminal Constant Konstanta;
+
+//Precedences added by Eclipse plugin
+
+
+//Grammar
+		
+Program ::= PROGRAM Block RETURN
+		{:
+		:}
+		;
+		
+Block ::= BEGIN VarList:niz Statements END
+		{:
+		:}
+		;
+		
+VarList ::= VarList:niz Var:v
+		{:
+				RESULT = niz;
+				RESULT.add(v.name);
+		:}
+		| Var:v
+		{:
+				RESULT = new ArrayList();
+				RESULT.add(v.name);
+		:}
+		;
+		
+Var ::= ID:ime COLON Tip:t SEMICOLON
+		{:
+				if ( ! parser.symbolTable.addVar( ime, t ) )
+					   {
+					   	 System.out.println( "Greska u liniji " + parser.getLine() + ": " + 
+                   			"Promenljiva " + ime + " je vec deklarisana." );
+            		     parser.errNo++;
+						 RESULT = new Variable( ime, t, null);
+					   }
+				RESULT = new Variable( ime, t, null);
+		:}
+		;
+		
+Tip ::= INTEGER 
+		{:
+           RESULT = parser.symbolTable.getType( "integer" );
+        :}
+		| CHAR 
+		{:
+           RESULT = parser.symbolTable.getType( "char" );
+        :}
+		| STRING
+		{:
+           RESULT = parser.symbolTable.getType( "string" );
+        :}		
+		| FILE
+		{:
+			RESULT = parser.symbolTable.getType( "file" );
+		:}
+		;
+		
+Statements ::= Statements SEMICOLON Statement 
+					| Statement
+		{:
+		:}
+		;
+		
+Statement ::= Assignment 
+					| ReadExpression
+		{:
+		:}
+		;
+		
+Assignment ::= ID:ime ASSIGN Expression:ex
+		{:
+			Variable var = parser.symbolTable.getVar( ime );
+		      if ( var == null )
+		      {
+		      	System.out.println( "Greska u liniji " + parser.getLine() + 
+		      		": promenljiva " + ime + " nije deklarisana.");
+		      	parser.errNo++;
+		      }
+		      else 
+		      {
+		         var.last_def = parser.getLine();
+		         if ( var.type.tkind != ex.tkind )
+		         {
+		            System.out.println( "Greska u liniji " + parser.getLine() + 
+		      		   ": Neslaganje tipa u naredbi dodele." );
+		      	    parser.errNo++;
+		         }
+		      }
+		:}
+		;
+		
+Expression ::= ArithmeticExpression:ex
+		{:
+			RESULT = parser.symbolTable.getType(ex.name);
+		:}
+		| OPEN LEFTPAR PrimaryExpression:ex RIGHTPAR
+		{:
+				if ( (ex.tkind != Type.STRING))
+              {
+              	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	   "Izraz u open naredbi mora biti tipa string" );
+              	parser.errNo++;
+				RESULT = parser.symbolTable.getType("unknown");
+              }
+			  else
+			  {
+				RESULT = parser.symbolTable.getType(ex.name);
+			  }
+		:}
+		;
+		
+ArithmeticExpression ::= ArithmeticExpression:ex1 PLUS PrimaryExpression:ex2
+		{:
+			if ( (ex1.tkind != Type.INTEGER && ex1.tkind != Type.CHARACTER ) || (ex2.tkind != Type.INTEGER && ex2.tkind != Type.CHARACTER) )
+              {
+              	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	   "Operator + se ne moze primeniti nad operandima tipa " + 
+              	   ex1.name + " i " + ex2.name );
+              	parser.errNo++;
+				RESULT = parser.symbolTable.getType("unknown");
+              }
+			  else
+			  {
+				if(ex1.tkind !=ex2.tkind )
+				{
+					System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	   "Operator + se ne moze primeniti nad operandima razlicitog tipa " + 
+					ex1.name + " i " + ex2.name );
+					parser.errNo++;
+					RESULT = parser.symbolTable.getType("unknown");
+				}
+				RESULT = parser.symbolTable.getType( ex1.name);
+			  }
+		:}
+		| ArithmeticExpression:ex1 MINUS PrimaryExpression:ex2
+		{:
+			if ( (ex1.tkind != Type.INTEGER && ex1.tkind != Type.CHARACTER ) || (ex2.tkind != Type.INTEGER && ex2.tkind != Type.CHARACTER) )
+              {
+              	System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	   "Operator - se ne moze primeniti nad operandima tipa " + 
+              	   ex1.name + " i " + ex2.name );
+              	parser.errNo++;
+				RESULT = parser.symbolTable.getType("unknown");
+              }
+			  else
+			  {
+				if(ex1.tkind !=ex2.tkind )
+				{
+					System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	   "Operator - se ne moze primeniti nad operandima razlicitog tipa " + 
+					ex1.name + " i " + ex2.name );
+					parser.errNo++;
+					RESULT = parser.symbolTable.getType("unknown");
+				}
+				RESULT = parser.symbolTable.getType( ex1.name);
+			  }
+		:}
+		| PrimaryExpression:ex
+		{:
+				RESULT = parser.symbolTable.getType( ex.name);
+		:}
+		;
+		
+PrimaryExpression ::= ID:ime
+		{:
+			Variable var = parser.symbolTable.getVar( ime );
+		      if ( var == null )
+		      {
+		      	System.out.println( "Greska u liniji " + parser.getLine() + 
+		      		": promenljiva " + ime + " nije deklarisana.");
+		      	RESULT = parser.symbolTable.getType( "unknown" );
+		      	parser.errNo++;
+		      }
+		      else 
+		      {
+		      	RESULT = var.type;
+		      	if ( var.last_def == -1 )
+		      	{
+		      		System.out.println( "Greska u liniji " + parser.getLine() + 
+		      			": promenljiva " + ime + " nije inicijalizovana.");
+		      		parser.errNo++;
+		      	}
+		        var.last_use = parser.getLine();
+		      }
+		:}
+			| Konstanta:k
+        {:
+				RESULT = k.type;
+		:}		
+		;
+		
+Konstanta ::= INTCONST:c
+              {:
+                 RESULT = new Constant( parser.symbolTable.getType( "integer" ), c );
+              :}
+            | CHARCONST:c
+              {:
+                 RESULT = new Constant( parser.symbolTable.getType( "char" ), c );
+              :}
+			| STRCONST:c
+              {:
+                 RESULT = new Constant( parser.symbolTable.getType( "string" ), c );
+              :}
+            ;
+ReadExpression ::= READ LEFTPAR ID:ime1 IN ID:ime2 RIGHTPAR DO Block
+		{:
+				Variable var1 = parser.symbolTable.getVar( ime1 );
+				Variable var2 = parser.symbolTable.getVar( ime2 );
+				if ( var1 == null )
+		      {
+		      	System.out.println( "Greska u liniji " + parser.getLine() + 
+		      		": promenljiva " + ime1 + " nije deklarisana.");
+		      	RESULT = parser.symbolTable.getType( "unknown" );
+		      	parser.errNo++;
+		      }
+			  if ( var2 == null )
+		      {
+		      	System.out.println( "Greska u liniji " + parser.getLine() + 
+		      		": promenljiva " + ime2 + " nije deklarisana.");
+		      	RESULT = parser.symbolTable.getType( "unknown" );
+		      	parser.errNo++;
+		      }
+			  if(var1.type.tkind != Type.CHARACTER)
+			  {
+				System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	   "Prvi identifikator ne moze biti tipa " + var1.type.name );
+				   RESULT = parser.symbolTable.getType( "unknown" );
+              	parser.errNo++;
+			  }
+			  if(var2.type.tkind != Type.FILE)
+			  {
+				System.out.println("Greska u liniji " + parser.getLine() + ": " + 
+              	   "Drugi identifikator ne moze biti tipa " + var2.type.name );
+				   RESULT = parser.symbolTable.getType( "unknown" );
+              	parser.errNo++;
+			  }
+		:}
+		;
+

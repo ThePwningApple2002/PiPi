@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item key="hasShownOverlayPopupBefore" value="true"/>
+	<item key="replaceBarOpen" value="true"/>
+	<list key="searchhistory">
+		<item value="RIGHTBRACKET"/>
+		<item value="LEFTBRACKET"/>
+		<item value="SEMI"/>
+		<item value="parser"/>
+		<item value="Gene"/>
+		<item value="int"/>
+		<item value="next_to"/>
+		<item value="next"/>
+		<item value="min"/>
+	</list>
+	<list key="replacehistory">
+		<item value="CLOSEDSQUARE"/>
+		<item value="OPENSQUARE"/>
+		<item value="SEMICOLON"/>
+	</list>
+</section>

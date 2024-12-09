@@ -60,9 +60,9 @@ return new Symbol ( sym.EOF );
 ([a-zA-Z])(([a-zA-Z]|[0-9])+) { return new Symbol(sym.ID, yytext() ); }
 
 //konstante
-(0|0x)?([0-9]+) { return new Symbol( sym.CONST ); }
-(\true|\false) { return new Symbol( sym.CONST ); }
-0.(0|[0-9]+)(E\+(0|[0-9]+)|E\-(0|[0-9]+)) { return new Symbol( sym.CONST ); }
+(0|0x)?([0-9]+) { return new Symbol( sym.INTCONST, new Integer( yytext() ) ); }
+(\true|\false) { return new Symbol( sym.BOOLCONST, new Boolean( yytext() ) ); }
+0.(0|[0-9]+)(E\+(0|[0-9]+)|E\-(0|[0-9]+)) { return new Symbol( sym.FLOATCONST, new Float( yytext() ) ); }
 
 //operatori
 \+ { return new Symbol( sym.PLUS ); }
