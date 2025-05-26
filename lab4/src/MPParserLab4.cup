@@ -161,17 +161,94 @@ Assignment ::= ID:ime ASSIGN ArithmeticExpression:expr
                                          ": promenljiva " + ime + " nije deklarisana.");
                       parser.errNo++;
                   } else {
-                      if (var.type.tkind != expr.type.tkind) {
-                          System.out.println("Greska u liniji " + parser.getLine() +
-                                             ": Neslaganje tipova u naredbi dodele.");
+                      // Direktna provera kompatibilnosti tipova sa implicitnom konverzijom
+                      boolean compatible = false;
+                      
+                      // Identični tipovi su uvek kompatibilni
+                      if (expr.type.tkind == var.type.tkind) {
+                          compatible = true;
+                      }
+                      // Implicitna konverzija iz int u float je dozvoljena
+                      else if (expr.type.tkind == Type.INT && var.type.tkind == Type.FLOAT) {
+                          compatible = true;
+                      }
+                      
+                      if (!compatible) {
+                          if (expr.type.tkind == Type.FLOAT && var.type.tkind == Type.INT) {
+                              System.out.println("Greska u liniji " + parser.getLine() +
+                                                 ": Nije moguća implicitna konverzija iz float u int.");
+                          } else if (expr.type.tkind == Type.BOOL || var.type.tkind == Type.BOOL) {
+                              System.out.println("Greska u liniji " + parser.getLine() +
+                                                 ": Nije moguća konverzija između bool i numeričkog tipa.");
+                          } else {
+                              System.out.println("Greska u liniji " + parser.getLine() +
+                                                 ": Neslaganje tipova u naredbi dodele.");
+                          }
                           parser.errNo++;
+                      } else {
+                          // Označavamo da je promenljiva inicijalizovana
+                          var.last_def = parser.getLine();
+                          var.initialized = true;
                       }
                   }
               :};
 
-ArithmeticExpression ::= ArithmeticExpression PLUS TermExpression
-                       | ArithmeticExpression MINUS TermExpression
-                       | TermExpression
+ArithmeticExpression ::= ArithmeticExpression:left PLUS TermExpression:right
+                       {:
+                           boolean leftNumeric = (left.type.tkind == Type.INT || left.type.tkind == Type.FLOAT);
+                           boolean rightNumeric = (right.type.tkind == Type.INT || right.type.tkind == Type.FLOAT);
+                           
+                           if (!leftNumeric || !rightNumeric) {
+                               if (left.type.tkind == Type.BOOL || right.type.tkind == Type.BOOL) {
+                                   System.out.println("Greska u liniji " + parser.getLine() +
+                                                      ": Aritmeticki operatori se ne mogu primeniti nad bool tipom.");
+                               } else {
+                                   System.out.println("Greska u liniji " + parser.getLine() +
+                                                      ": Aritmeticki operatori se mogu primeniti samo nad numeričkim tipovima (int, float).");
+                               }
+                               parser.errNo++;
+                               RESULT = new Constant(parser.symbolTable.getType("int"), 0); // default
+                           } else {
+                               // Direktno određivanje rezultujućeg tipa (uvek viši tip)
+                               Type resultType;
+                               if (left.type.tkind == Type.FLOAT || right.type.tkind == Type.FLOAT) {
+                                   resultType = parser.symbolTable.getType("float");
+                               } else {
+                                   resultType = parser.symbolTable.getType("int");
+                               }
+                               RESULT = new Constant(resultType, 0);
+                           }
+                       :}
+                       | ArithmeticExpression:left MINUS TermExpression:right
+                       {:
+                           boolean leftNumeric = (left.type.tkind == Type.INT || left.type.tkind == Type.FLOAT);
+                           boolean rightNumeric = (right.type.tkind == Type.INT || right.type.tkind == Type.FLOAT);
+                           
+                           if (!leftNumeric || !rightNumeric) {
+                               if (left.type.tkind == Type.BOOL || right.type.tkind == Type.BOOL) {
+                                   System.out.println("Greska u liniji " + parser.getLine() +
+                                                      ": Aritmeticki operatori se ne mogu primeniti nad bool tipom.");
+                               } else {
+                                   System.out.println("Greska u liniji " + parser.getLine() +
+                                                      ": Aritmeticki operatori se mogu primeniti samo nad numeričkim tipovima (int, float).");
+                               }
+                               parser.errNo++;
+                               RESULT = new Constant(parser.symbolTable.getType("int"), 0); // default
+                           } else {
+                               // Direktno određivanje rezultujućeg tipa (uvek viši tip)
+                               Type resultType;
+                               if (left.type.tkind == Type.FLOAT || right.type.tkind == Type.FLOAT) {
+                                   resultType = parser.symbolTable.getType("float");
+                               } else {
+                                   resultType = parser.symbolTable.getType("int");
+                               }
+                               RESULT = new Constant(resultType, 0);
+                           }
+                       :}
+                       | TermExpression:term
+                       {:
+                           RESULT = term;
+                       :}
                        ;
 
 TermExpression ::= INTCONST
