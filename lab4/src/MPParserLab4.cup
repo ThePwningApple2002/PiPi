@@ -90,24 +90,7 @@ non terminal Type Tip,ArithmeticExpression, TermExpression, NameList;
 non terminal Variable Var;
 non terminal Constant Konstanta;
 
-//Precedences added by Eclipse plugin
 
-
-//Grammar
-		/*
-terminal Integer CONST_INT;
-terminal Float CONST_FLOAT;
-terminal String CONST_BOOL;
-terminal String ID;
-terminal String PLUS, MINUS, ASSIGN, SEMICOLON, COMMA, OPENSQUARE, CLOSEDSQUARE, IN, APPLY, FOR, MAIN, EXIT;
-terminal String INT, FLOAT, BOOL;
-
-// Neterminali
-non terminal Program, Block, Declarations, Declaration, Type;
-non terminal Expressions, Expression, Assignment, ArithmeticExpression, TermExpression;
-non terminal ApplyExpression, NameList;
-*/
-// Gramatika
 Program ::= MAIN Block EXIT
             {:
                 // System.out.println("Redukcija po smeni 1: Program.");
