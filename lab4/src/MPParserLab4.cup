@@ -93,12 +93,11 @@ non terminal Constant Konstanta;
 
 Program ::= MAIN Block EXIT
             {:
-                // System.out.println("Redukcija po smeni 1: Program.");
+
             :};
 
 Block ::= Declarations Expressions
           {:
-              // System.out.println("Redukcija po smeni 2: Block.");
           :};
 
 Declarations ::= Declarations Declaration
@@ -144,14 +143,11 @@ Assignment ::= ID:ime ASSIGN ArithmeticExpression:expr
                                          ": promenljiva " + ime + " nije deklarisana.");
                       parser.errNo++;
                   } else {
-                      // Direktna provera kompatibilnosti tipova sa implicitnom konverzijom
                       boolean compatible = false;
                       
-                      // Identični tipovi su uvek kompatibilni
                       if (expr.type.tkind == var.type.tkind) {
                           compatible = true;
                       }
-                      // Implicitna konverzija iz int u float je dozvoljena
                       else if (expr.type.tkind == Type.INT && var.type.tkind == Type.FLOAT) {
                           compatible = true;
                       }
@@ -169,7 +165,6 @@ Assignment ::= ID:ime ASSIGN ArithmeticExpression:expr
                           }
                           parser.errNo++;
                       } else {
-                          // Označavamo da je promenljiva inicijalizovana
                           var.last_def = parser.getLine();
                           var.initialized = true;
                       }
@@ -190,9 +185,7 @@ ArithmeticExpression ::= ArithmeticExpression:left PLUS TermExpression:right
                                                       ": Aritmeticki operatori se mogu primeniti samo nad numeričkim tipovima (int, float).");
                                }
                                parser.errNo++;
-                               RESULT = new Constant(parser.symbolTable.getType("int"), 0); // default
                            } else {
-                               // Direktno određivanje rezultujućeg tipa (uvek viši tip)
                                Type resultType;
                                if (left.type.tkind == Type.FLOAT || right.type.tkind == Type.FLOAT) {
                                    resultType = parser.symbolTable.getType("float");
@@ -216,9 +209,7 @@ ArithmeticExpression ::= ArithmeticExpression:left PLUS TermExpression:right
                                                       ": Aritmeticki operatori se mogu primeniti samo nad numeričkim tipovima (int, float).");
                                }
                                parser.errNo++;
-                               RESULT = new Constant(parser.symbolTable.getType("int"), 0); // default
                            } else {
-                               // Direktno određivanje rezultujućeg tipa (uvek viši tip)
                                Type resultType;
                                if (left.type.tkind == Type.FLOAT || right.type.tkind == Type.FLOAT) {
                                    resultType = parser.symbolTable.getType("float");
@@ -260,21 +251,89 @@ TermExpression ::= INTCONST
 
 ApplyExpression ::= FOR ID:iter IN OPENSQUARE NameList:names CLOSEDSQUARE APPLY Expression:expr
                    {:
-                       Variable iterVar = parser.symbolTable.addVar(iter, parser.symbolTable.getType("int"));
-                       if (iterVar == null) {
-                           System.out.println("Greska u liniji " + parser.getLine() +
-                                              ": Iterator " + iter + " je vec deklarisan.");
-                           parser.errNo++;
+                       Type nameListType = null;
+                       for (int i = 0; i < names.size(); i++) {
+                           String varName = (String) names.get(i);
+                           Variable var = parser.symbolTable.getVar(varName);
+                           if (var != null) {
+                               nameListType = var.type;
+                               break;
+                           }
+                       }
+                       
+                       if (nameListType != null) {
+                           Variable iterVar = parser.symbolTable.getVar(iter);
+                           
+                           if (iterVar != null) {
+                               if (iterVar.type.tkind != nameListType.tkind) {
+                                   System.out.println("Greska u liniji " + parser.getLine() +
+                                                      ": Iterator " + iter + " mora biti istog tipa kao elementi NameList-e.");
+                                   parser.errNo++;
+                               } else {
+                                   iterVar.last_use = parser.getLine();
+                               }
+                           } else {
+                               if (!parser.symbolTable.addVar(iter, nameListType)) {
+                                   System.out.println("Greska u liniji " + parser.getLine() +
+                                                      ": Greska pri deklarisanju iteratora " + iter + ".");
+                                   parser.errNo++;
+                               }
+                           }
+                       } else {
+                           if (!parser.symbolTable.addVar(iter, parser.symbolTable.getType("int"))) {
+                               Variable iterVar = parser.symbolTable.getVar(iter);
+                               if (iterVar != null) {
+                                   iterVar.last_use = parser.getLine();
+                               }
+                           }
                        }
                    :};
 
 NameList ::= NameList:niz COMMA ID:name
            {:
-               RESULT = niz;
-               RESULT.add(name);
+               Variable var = parser.symbolTable.getVar(name);
+               if (var == null) {
+                   System.out.println("Greska u liniji " + parser.getLine() +
+                                      ": promenljiva " + name + " nije deklarisana.");
+                   parser.errNo++;
+                   RESULT = niz;
+                   RESULT.add(name);
+               } else {
+                   var.last_use = parser.getLine();
+                   
+                   boolean typeMatch = true;
+                   Type expectedType = null;
+                   
+                   for (int i = 0; i < niz.size(); i++) {
+                       String existingName = (String) niz.get(i);
+                       Variable existingVar = parser.symbolTable.getVar(existingName);
+                       if (existingVar != null) {
+                           expectedType = existingVar.type;
+                           break;
+                       }
+                   }
+                   
+                   if (expectedType != null && var.type.tkind != expectedType.tkind) {
+                       System.out.println("Greska u liniji " + parser.getLine() +
+                                          ": Promenljiva " + name + " mora biti istog tipa kao ostale promenljive u listi.");
+                       parser.errNo++;
+                   }
+                   
+                   RESULT = niz;
+                   RESULT.add(name);
+               }
            :}
          | ID:name
            {:
+               Variable var = parser.symbolTable.getVar(name);
+               if (var == null) {
+                   System.out.println("Greska u liniji " + parser.getLine() +
+                                      ": promenljiva " + name + " nije deklarisana.");
+                   parser.errNo++;
+               } else {
+                   var.last_use = parser.getLine();
+               }
+               
                RESULT = new ArrayList();
                RESULT.add(name);
            :};
